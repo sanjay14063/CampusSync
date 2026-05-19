@@ -6,6 +6,9 @@ const Navbar = () => {
   const { logout, role } = useAuth()
 
   const handleLogout = async () => {
+    const confirmed = window.confirm('Log out of CampusSync?')
+    if (!confirmed) return
+
     try {
       await logout()
       navigate('/')

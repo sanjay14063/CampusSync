@@ -14,6 +14,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function hasValidEventStatus() {
+      return request.resource.data.status in ['Draft', 'Active', 'Full', 'Completed'];
+    }
+
     match /user/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.role == 'student';
@@ -22,8 +26,9 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if signedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (
+      allow create: if isAdmin() && hasValidEventStatus();
+      allow delete: if isAdmin();
+      allow update: if (isAdmin() && hasValidEventStatus()) || (
         signedIn()
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['currentParticipants', 'status'])
         && request.resource.data.currentParticipants is int

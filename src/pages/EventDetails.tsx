@@ -4,7 +4,7 @@ import type { Event } from '../types/event'
 import { db } from '../firebase/config'
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { canRegisterForEvent, getEventStatus } from '../utils/events'
+import { canRegisterForEvent, getEventStatus, isVisibleToStudents } from '../utils/events'
 
 const formatEventDate = (event: Event) => {
   if (event.dateTimestamp && 'toDate' in event.dateTimestamp) {
@@ -78,6 +78,23 @@ const EventDetails = () => {
 
   if (!event) return null
 
+  if (role === 'student' && !isVisibleToStudents(event)) {
+    return (
+      <div className="mx-auto max-w-3xl p-6 text-left">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-semibold text-slate-900">Event unavailable</h1>
+          <p className="mt-3 text-sm text-slate-600">This event is not currently open to students.</p>
+          <Link
+            to="/events"
+            className="mt-5 inline-flex rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            Back to Events
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const registeredCount = registrationCount ?? event.currentParticipants ?? 0
   const seatsLeft = (event?.maxCapacity || 0) - registeredCount
   const eligibility = event?.registrationCriteria || 'No eligibility details available.'
@@ -138,6 +155,10 @@ const EventDetails = () => {
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Seats left</h3>
                 <p className="mt-2 text-lg font-medium text-slate-900">{seatsLeft}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Register by</h3>
+                <p className="mt-2 text-lg font-medium text-slate-900">{event.registrationDeadline ? new Date(event.registrationDeadline).toLocaleString() : 'N/A'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">Status</h3>

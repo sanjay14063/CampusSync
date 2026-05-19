@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import type { Event } from '../types/event'
-import { canRegisterForEvent, registerForEvent } from '../utils/events'
+import { canRegisterForEvent, isRegistrationClosed, isVisibleToStudents, registerForEvent } from '../utils/events'
 
 const RegisterEvent = () => {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +15,7 @@ const RegisterEvent = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isRegistered, setIsRegistered] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -32,13 +33,46 @@ const RegisterEvent = () => {
     load()
   }, [id])
 
+  useEffect(() => {
+    const checkRegistration = async () => {
+      if (!id || !user) return
+      try {
+        const regDoc = await getDoc(doc(db, 'registrations', `${id}_${user.uid}`))
+        setIsRegistered(regDoc.exists())
+      } catch (err) {
+        console.error('Failed to check registration status', err)
+      }
+    }
+
+    checkRegistration()
+  }, [id, user])
+
   if (loading) return <div className="p-6">Loading…</div>
   if (!event) return <div className="p-6">Event not found</div>
   if (role !== 'student') return <div className="p-6">Only students can register for events.</div>
+  if (!isVisibleToStudents(event)) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-semibold text-slate-900">Event unavailable</h1>
+          <p className="mt-3 text-sm text-slate-600">This event is not currently open for student registration.</p>
+          <button
+            onClick={() => navigate('/events')}
+            className="mt-5 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+          >
+            Back to Events
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const registrationClosed = isRegistrationClosed(event)
+  const canRegister = canRegisterForEvent(event)
 
   const handleRegister = async () => {
     if (!user) return navigate('/')
-    if (!canRegisterForEvent(event)) {
+    if (registrationClosed || !canRegister) {
       setError('Registration is not open for this event.')
       return
     }
@@ -48,8 +82,11 @@ const RegisterEvent = () => {
     try {
       await registerForEvent(db, event, user)
 
-      setSuccess('Registration successful')
+      const message = 'You are now registered for this event!'
+      setSuccess(message)
+      setIsRegistered(true)
       setError(null)
+      window.alert('Registration successful!')
     } catch (err) {
       console.error('Registration failed', err)
       setError(err instanceof Error ? err.message : 'Registration failed')
@@ -71,11 +108,30 @@ const RegisterEvent = () => {
           <div className="rounded border border-green-200 bg-green-50 p-3 text-green-800 mb-3">{success}</div>
         ) : null}
 
-        <div className="flex gap-3">
-          <button onClick={handleRegister} disabled={submitting} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50">
-            {submitting ? 'Registering…' : 'Confirm Registration'}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button
+            onClick={handleRegister}
+            disabled={submitting || isRegistered || registrationClosed}
+            className={`rounded-md px-4 py-2 text-sm font-semibold text-white ${
+              isRegistered || registrationClosed
+                ? 'cursor-not-allowed bg-slate-400'
+                : 'bg-slate-900 hover:bg-slate-700'
+            } disabled:opacity-50`}
+          >
+            {isRegistered
+              ? 'Registered'
+              : registrationClosed
+              ? 'Registration closed'
+              : submitting
+              ? 'Registering…'
+              : 'Confirm Registration'}
           </button>
-          <button onClick={() => navigate(-1)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Back</button>
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Back
+          </button>
         </div>
       </div>
     </div>

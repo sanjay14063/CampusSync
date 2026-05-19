@@ -14,7 +14,7 @@ export interface Event {
   venue: string
   maxCapacity: number
   currentParticipants?: number
-  status?: 'Draft' | 'Active' | 'Full' | 'Completed'
+  status: 'Draft' | 'Active' | 'Full' | 'Completed'
   description: string
   prize?: string
   entryFee?: number

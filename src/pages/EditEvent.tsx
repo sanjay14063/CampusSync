@@ -7,6 +7,29 @@ import type { EventFormValues } from '../components/EventForm'
 import type { Event, EventStatus } from '../types/event'
 import { useAuth } from '../context/AuthContext'
 
+const validateEventForm = (form: EventFormValues) => {
+  const capacity = Number(form.maxCapacity)
+  if (!form.title.trim()) return 'Event title is required.'
+  if (!form.date) return 'Event date and time are required.'
+  if (!form.registrationDeadline) return 'Registration deadline is required.'
+  if (!form.venue.trim()) return 'Venue is required.'
+  if (!form.description.trim()) return 'Description is required.'
+  if (!Number.isFinite(capacity) || capacity < 1) return 'Maximum capacity must be at least 1.'
+  if (!form.status) return 'Event status is required.'
+  if (!form.participationType) return 'Participation type is required.'
+  if (form.registrationDeadline && form.date) {
+    const registrationDeadline = new Date(form.registrationDeadline)
+    const eventDate = new Date(form.date)
+    if (Number.isNaN(registrationDeadline.valueOf()) || Number.isNaN(eventDate.valueOf())) {
+      return 'Invalid event or registration deadline date.'
+    }
+    if (registrationDeadline >= eventDate) {
+      return 'Registration deadline must be before the event date and time.'
+    }
+  }
+  return null
+}
+
 const EditEvent = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -61,23 +84,29 @@ const EditEvent = () => {
 
   const handleSubmit = async (form: EventFormValues) => {
     if (!id) return
+    const validationError = validateEventForm(form)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
       const payload: Partial<Omit<Event, 'id'>> = {
-        title: form.title,
+        title: form.title.trim(),
         date: form.date,
         dateTimestamp: form.date ? Timestamp.fromDate(new Date(form.date)) : undefined,
-        venue: form.venue,
-        description: form.description,
-        maxCapacity: Number(form.maxCapacity) || 0,
+        venue: form.venue.trim(),
+        description: form.description.trim(),
+        maxCapacity: Number(form.maxCapacity),
         status: form.status,
         participationType: form.participationType,
-        prize: form.prize || undefined,
+        prize: form.prize.trim() || undefined,
         entryFee: form.entryFee ? Number(form.entryFee) : undefined,
-        rules: form.rules || undefined,
+        rules: form.rules.trim() || undefined,
         registrationDeadline: form.registrationDeadline || undefined,
-        registrationCriteria: form.registrationCriteria || undefined
+        registrationCriteria: form.registrationCriteria.trim() || undefined
       }
 
       if (form.participationType === 'team' && form.teamSize) {

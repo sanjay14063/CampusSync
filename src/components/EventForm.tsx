@@ -50,6 +50,7 @@ const EventForm = ({
   onCancel
 }: EventFormProps) => {
   const [form, setForm] = useState<EventFormValues>(initialValues)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target
@@ -63,6 +64,33 @@ const EventForm = ({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    const errors: string[] = []
+    const capacity = Number(form.maxCapacity)
+
+    if (!form.title.trim()) errors.push('Event title is required.')
+    if (!form.date) errors.push('Event date and time are required.')
+    if (!form.registrationDeadline) errors.push('Registration deadline is required.')
+    if (!form.venue.trim()) errors.push('Venue is required.')
+    if (!form.description.trim()) errors.push('Description is required.')
+    if (!Number.isFinite(capacity) || capacity < 1) errors.push('Maximum capacity must be at least 1.')
+    if (!form.status) errors.push('Event status is required.')
+    if (!form.participationType) errors.push('Participation type is required.')
+    if (form.registrationDeadline && form.date) {
+      const registrationDeadline = new Date(form.registrationDeadline)
+      const eventDate = new Date(form.date)
+      if (Number.isNaN(registrationDeadline.valueOf()) || Number.isNaN(eventDate.valueOf())) {
+        errors.push('Invalid event or registration deadline date.')
+      } else if (registrationDeadline >= eventDate) {
+        errors.push('Registration deadline must be before the event date and time.')
+      }
+    }
+
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+
+    setValidationErrors([])
     onSubmit(form)
   }
 
@@ -71,6 +99,17 @@ const EventForm = ({
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800">
           <p className="text-sm">{error}</p>
+        </div>
+      ) : null}
+
+      {validationErrors.length > 0 ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-semibold">Please fix the following:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {validationErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -83,6 +122,7 @@ const EventForm = ({
           value={form.title}
           onChange={handleChange}
           placeholder="Enter event title"
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
       </div>
@@ -96,6 +136,7 @@ const EventForm = ({
           value={form.date}
           onChange={handleChange}
           type="datetime-local"
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
       </div>
@@ -109,8 +150,10 @@ const EventForm = ({
           value={form.registrationDeadline}
           onChange={handleChange}
           type="datetime-local"
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
+        <p className="mt-2 text-xs text-slate-500">Deadline must be on or before the event date and time.</p>
       </div>
 
       <div>
@@ -122,6 +165,7 @@ const EventForm = ({
           value={form.venue}
           onChange={handleChange}
           placeholder="Enter event venue"
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
       </div>
@@ -135,6 +179,7 @@ const EventForm = ({
           value={form.description}
           onChange={handleChange}
           placeholder="Enter event description"
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
           rows={4}
         />
@@ -149,6 +194,8 @@ const EventForm = ({
           value={form.maxCapacity}
           onChange={handleChange}
           type="number"
+          min="1"
+          required
           placeholder="Enter maximum capacity"
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         />
@@ -162,6 +209,7 @@ const EventForm = ({
           id="status"
           value={form.status}
           onChange={handleChange}
+          required
           className="w-full rounded-md border border-slate-300 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
         >
           <option value="Active">Active</option>
@@ -180,6 +228,7 @@ const EventForm = ({
           id="participationType"
           value={form.participationType}
           onChange={handleChange}
+          required
           className="w-full rounded border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-500"
         >
           <option value="">Select type</option>

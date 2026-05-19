@@ -4,7 +4,7 @@ import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/fire
 import { db } from '../firebase/config'
 import type { Event, Registration } from '../types/event'
 import { useAuth } from '../context/AuthContext'
-import { canRegisterForEvent, getEventStatus, registerForEvent } from '../utils/events'
+import { canRegisterForEvent, getEventStatus, isVisibleToStudents, registerForEvent } from '../utils/events'
 
 const EventsGrid = () => {
   const navigate = useNavigate()
@@ -17,6 +17,7 @@ const EventsGrid = () => {
   const [selectedType, setSelectedType] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [registeringId, setRegisteringId] = useState<string | null>(null)
+  const [registeredEventIds, setRegisteredEventIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -40,6 +41,27 @@ const EventsGrid = () => {
     fetchEvents()
   }, [])
 
+  useEffect(() => {
+    const fetchStudentRegistrations = async () => {
+      if (!user || role !== 'student') {
+        setRegisteredEventIds(new Set())
+        return
+      }
+
+      try {
+        const registrationsQuery = query(collection(db, 'registrations'), where('uid', '==', user.uid))
+        const snapshot = await getDocs(registrationsQuery)
+        setRegisteredEventIds(
+          new Set(snapshot.docs.map((docSnap) => (docSnap.data() as Registration).eventId))
+        )
+      } catch (err) {
+        console.error('Failed to load registration status', err)
+      }
+    }
+
+    fetchStudentRegistrations()
+  }, [role, user])
+
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       const matchesSearch = [event.title, event.description, event.venue]
@@ -50,12 +72,15 @@ const EventsGrid = () => {
       const matchesStatus = statusFilter ? status === statusFilter : true
       const matchesType = selectedType ? event.participationType === selectedType : true
 
-      if (role === 'student' && (status === 'Draft' || status === 'Completed')) return false
+      if (role === 'student' && !isVisibleToStudents(event)) return false
       return matchesSearch && matchesStatus && matchesType
     })
   }, [events, role, searchValue, selectedType, statusFilter])
 
   const handleDelete = async (id: string) => {
+    const confirmed = window.confirm('Delete this event? This action cannot be undone.')
+    if (!confirmed) return
+
     setActionError(null)
     try {
       await deleteDoc(doc(db, 'events', id))
@@ -113,13 +138,15 @@ const EventsGrid = () => {
     setRegisteringId(event.id)
     try {
       await registerForEvent(db, event, user)
+      setRegisteredEventIds((current) => new Set(current).add(event.id))
       setEvents((current) =>
         current.map((item) =>
           item.id === event.id
             ? { ...item, currentParticipants: (item.currentParticipants || 0) + 1 }
-            : item
+          : item
         )
       )
+      window.alert('Registration successful!')
     } catch (err) {
       console.error('Registration failed', err)
       setActionError((err as Error).message || 'Registration failed')
@@ -133,6 +160,12 @@ const EventsGrid = () => {
       return event.dateTimestamp.toDate().toLocaleString()
     }
     return event.date
+  }
+
+  const formatRegistrationDeadline = (event: Event) => {
+    if (!event.registrationDeadline) return 'N/A'
+    const deadline = new Date(event.registrationDeadline)
+    return Number.isNaN(deadline.valueOf()) ? 'Invalid date' : deadline.toLocaleString()
   }
 
   return (
@@ -217,6 +250,7 @@ const EventsGrid = () => {
           filteredEvents.map((event) => {
             const status = getEventStatus(event)
             const seatsLeft = Math.max(0, (event.maxCapacity || 0) - (event.currentParticipants || 0))
+            const isRegistered = registeredEventIds.has(event.id)
             return (
               <div key={event.id} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
@@ -232,8 +266,8 @@ const EventsGrid = () => {
                 <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
                   <div><strong>Date:</strong> {formatEventDate(event)}</div>
                   <div><strong>Venue:</strong> {event.venue}</div>
-                  <div><strong>Type:</strong> {event.participationType}</div>
                   <div><strong>Seats left:</strong> {seatsLeft}</div>
+                  <div><strong>Register by:</strong> {formatRegistrationDeadline(event)}</div>
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -250,10 +284,14 @@ const EventsGrid = () => {
                       <>
                         <button
                           onClick={() => handleRegister(event)}
-                          disabled={!canRegisterForEvent(event) || registeringId === event.id}
-                          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          disabled={isRegistered || !canRegisterForEvent(event) || registeringId === event.id}
+                          className={`rounded-md px-3 py-1.5 text-sm font-semibold text-white disabled:cursor-not-allowed ${
+                            isRegistered
+                              ? 'bg-slate-400'
+                              : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300'
+                          }`}
                         >
-                          {registeringId === event.id ? 'Registering...' : 'Register'}
+                          {isRegistered ? 'Registered' : registeringId === event.id ? 'Registering...' : 'Register'}
                         </button>
                         <button
                           onClick={() => navigate(`/unregisterevent/${event.id}`)}
