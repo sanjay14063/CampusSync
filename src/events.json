@@ -1,0 +1,40 @@
+[
+  {
+    "id": "event1",
+    "title": "Dance Competition",
+    "participationType": "Individual",
+    "date": "2026-07-15",
+    "venue": "City Hall",
+    "maxCapacity": 50,
+    "currentParticipants": 12,
+    "status": "Active",
+    "prize": "Trophy and cash prize for the winner",
+    "entryFee": 10,
+    "rules": "Participants must perform a dance routine of their choice. The routine should be between 2 to 5 minutes long. Judges will evaluate based on creativity, technique, and stage presence.",
+    "registrationCriteria": "Open to all dance styles and levels. Participants must register online before the deadline.",
+    "contactEmail": "dancecomp@example.com",
+    "schedule": "The competition will start at 6:00 PM and end at 9:00 PM on the day of the event. There will be a break for refreshments and networking.",
+    "description": "Show off your dance moves in our annual dance competition. Open to all styles and levels."
+  },
+  {
+    "id": "event2",
+    "title": "Hackathon",
+    "participationType": "Team",
+    "teamSize": {
+      "min": 2,
+      "max": 4
+    },
+    "date": "2026-08-15",
+    "venue": "Tech Hub",
+    "maxCapacity": 25,
+    "currentParticipants": 18,
+    "status": "Active",
+    "prize": "Cash prize for the winning team",
+    "entryFee": 20,
+    "rules": "Participants must form teams of 2 to 4 members. Projects must be developed during the event.",
+    "registrationCriteria": "Open to all skill levels. Participants must register online before the deadline.",
+    "contactEmail": "hackathon@example.com",
+    "schedule": "The hackathon will start at 9:00 AM and end at 9:00 PM on the day of the event. There will be breaks for meals and networking.",
+    "description": "Show off your coding skills in our annual hackathon. Open to all skill levels."
+  }
+]
