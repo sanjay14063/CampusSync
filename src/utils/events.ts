@@ -67,11 +67,8 @@ export const registerForEvent = async (db: Firestore, event: Event, user: NonNul
   const eventRef = doc(db, 'events', event.id)
 
   await runTransaction(db, async (tx) => {
-    const [eventSnap, regSnap] = await Promise.all([tx.get(eventRef), tx.get(regRef)])
-
+    const eventSnap = await tx.get(eventRef)
     if (!eventSnap.exists()) throw new Error('Event does not exist')
-    if (regSnap.exists()) throw new Error('You have already registered for this event.')
-
     const data = { id: eventSnap.id, ...(eventSnap.data() as Omit<Event, 'id'>) } as Event
     const status = getEventStatus(data)
     const deadline = getRegistrationDeadline(data)
