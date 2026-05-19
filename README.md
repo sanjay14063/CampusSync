@@ -16,19 +16,50 @@ Security rules live in `firestore.rules` and are referenced by `firebase.json`.
 
 The rules allow admins to manage event documents. Because this proof of concept performs student registration directly from the client, students are only permitted to update the event counter fields in a narrow transaction path while registration documents are restricted to the authenticated student UID. In a production deployment, this counter update would be a good candidate for a Cloud Function if event documents must be completely admin-only for every write path.
 
-## Local Development
+## Concurrency and Security Explanation
 
-```bash
-npm install
-npm run dev
-```
+### Concurrency Problem
 
-## Build
+The core concurrency challenge in the system is preventing race conditions during simultaneous event registrations.
 
-```bash
-npm run build
-```
+Example:
 
-## Notes
+- An event has 49/50 participants registered
+- Two students click "Register" at nearly the same time
+- Without concurrency protection, both requests may read the same participant count and both registrations could succeed
+- This would overbook the event and corrupt participant counts
 
-Set the Firebase config in `.env` and update `ADMIN_UIDS` in `src/context/AuthContext.tsx` and `firestore.rules` with the production admin UID list.
+To solve this, the application uses Firestore transactions.
+
+The transaction:
+
+1. Reads the current event document
+2. Reads the registration document for the student
+3. Rejects duplicate registrations
+4. Checks whether `currentParticipants < maxCapacity`
+5. Creates the registration document
+6. Atomically increments the participant counter
+
+Because all operations occur inside a single transaction, Firestore guarantees consistency even under concurrent access.
+
+### Security Problem
+
+The security challenge is preventing unauthorized users from modifying protected data.
+
+The application uses Firebase Authentication together with Firestore Security Rules to enforce role-based access control.
+
+The rules ensure:
+
+- Only authenticated users can create registrations
+- Students can only create registration documents tied to their own UID
+- Only admins can create, edit, or delete event documents
+- Unauthorized writes are rejected directly by Firestore even if frontend protection is bypassed
+
+This prevents:
+
+- Unauthorized event modification
+- Registration spoofing
+- Cross-user registration writes
+- Direct database tampering from the client
+
+Because this proof of concept performs registration logic directly from the client, event counter updates are narrowly scoped inside the transaction rules. In a production deployment, this logic would ideally be moved to trusted backend infrastructure such as Cloud Functions.
